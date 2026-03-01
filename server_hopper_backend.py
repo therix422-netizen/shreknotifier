@@ -219,37 +219,79 @@ def get_category(value):
     if v >= 1e7:  return "10m+"
     return None
 
+# Brainrot images
+IMAGES = {
+    "headless horseman":      "https://static.wikia.nocookie.net/stealabr/images/f/ff/Headlesshorseman.png/revision/latest?cb=20251030020338",
+    "strawberry elephant":    "https://static.wikia.nocookie.net/stealabr/images/5/58/Strawberryelephant.png/revision/latest?cb=20250830235735",
+    "meowl":                  "https://static.wikia.nocookie.net/stealabr/images/b/b8/Clear_background_clear_meowl_image.png/revision/latest?cb=20251022133154",
+    "skibidi toilet":         "https://static.wikia.nocookie.net/stealabr/images/3/34/Skibidi_toilet.png/revision/latest?cb=20251227221221",
+    "dragon gingerini":       "https://static.wikia.nocookie.net/stealabr/images/3/3a/DragonGingerini.png/revision/latest?cb=20251221003419",
+    "la supreme combinasion": "https://static.wikia.nocookie.net/stealabr/images/5/52/SupremeCombinasion.png/revision/latest?cb=20250825130920",
+    "ginger gerat":           "https://static.wikia.nocookie.net/stealabr/images/8/85/GingerGerat.png/revision/latest?cb=20251227115546",
+    "ketupat bros":           "https://static.wikia.nocookie.net/stealabr/images/4/4d/Ketupat_Bros.png/revision/latest?cb=20260207220106",
+    "hydra dragon cannelloni":"https://static.wikia.nocookie.net/stealabr/images/e/ee/Hydra_Dragon_Cannelloni.png/revision/latest?cb=20260207220000",
+    "dragon cannelloni":      "https://static.wikia.nocookie.net/stealabr/images/3/31/Nah_uh.png/revision/latest?cb=20250919124457",
+    "cerberus":               "https://static.wikia.nocookie.net/stealabr/images/4/45/Cerberus.png/revision/latest?cb=20260217181804",
+    "capitano moby":          "https://static.wikia.nocookie.net/stealabr/images/e/ef/Moby.png/revision/latest?cb=20251101185416",
+    "cooki and milki":        "https://static.wikia.nocookie.net/stealabr/images/9/9b/Cooki_and_milki.png/revision/latest?cb=20251106165517",
+    "burguru and fryuru":     "https://static.wikia.nocookie.net/stealabr/images/6/65/Burguro-And-Fryuro.png/revision/latest?cb=20251007133840",
+}
+
+PRIORITY_ORDER = [
+    "headless horseman","strawberry elephant","meowl","skibidi toilet",
+    "dragon gingerini","la supreme combinasion","ginger gerat","ketupat bros",
+    "hydra dragon cannelloni","dragon cannelloni","cerberus","capitano moby",
+    "cooki and milki","burguru and fryuru",
+]
+
 async def send_discord_found(entry):
     name  = entry.get("name", "?")
     gen   = entry.get("gen", "?")
-    value = entry.get("value", 0)
+    value = float(entry.get("value", 0))
     job   = entry.get("job_id", "?")
+    player = entry.get("player", "?")
     cat   = get_category(value)
-
     name_lo = name.lower()
+
+    # Ping
     ping = ""
     if name_lo in EVERYONE_PING: ping = f"@everyone **{name}** found!"
     elif name_lo in HERE_PING:   ping = f"@here **{name}** found!"
 
+    # Color
+    color = 5814783
+    if name_lo in EVERYONE_PING: color = 16711680
+    elif name_lo in HERE_PING:   color = 16776960
+
+    # Description
+    desc = f"**Brainrots**\n\n1x {name} : {gen}\n\n**Server:** {job}"
+
     embed = {
-        "title":       f"[{cat or '?'}] {name} ({gen})",
-        "description": f"**{name}**\n\n1x {name} : {gen}\n\n**Server:** {job}",
-        "color":       5814783,
-        "footer":      {"text": f"Found by {entry.get('player','?')}"},
-        "timestamp":   entry.get("time", datetime.datetime.utcnow().isoformat() + "Z"),
+        "title":     f"[{cat or '?'}] {name} ({gen})",
+        "description": desc,
+        "color":     color,
+        "footer":    {"text": f"Found by {player} | discord.gg/shreknotifier"},
+        "timestamp": entry.get("time", datetime.datetime.utcnow().isoformat() + "Z"),
     }
+
+    # Add image if available
+    img = IMAGES.get(name_lo)
+    if img:
+        embed["thumbnail"] = {"url": img}
 
     async with aiohttp.ClientSession() as sess:
         # Category webhook
         if cat and cat in WEBHOOKS:
             try:
                 await sess.post(WEBHOOKS[cat], json={"embeds": [embed]})
+                print(f"[WH] {cat} webhook sent for {name}")
             except Exception as e:
                 print(f"[WH ERR] {e}")
-        # Highlights webhook (100m+ only)
+        # Highlights webhook (100m+)
         if value >= 1e8:
             try:
                 await sess.post(HIGHLIGHTS_URL, json={"content": ping, "embeds": [embed]})
+                print(f"[WH] highlights webhook sent for {name}")
             except Exception as e:
                 print(f"[WH HIGHLIGHTS ERR] {e}")
 
