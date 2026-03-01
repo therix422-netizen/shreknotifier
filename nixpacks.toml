@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["python311"]
-
-[phases.install]
-cmds = ["python3.11 -m pip install -r requirements.txt"]
-
-[start]
-cmd = "python server_hopper_backend.py"
