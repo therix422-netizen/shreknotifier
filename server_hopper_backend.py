@@ -394,11 +394,9 @@ async def bot_status_loop():
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
-                # Fetch bot list
-                async with sess.get(BOT_STATUS_API, timeout=aiohttp.ClientTimeout(total=10)) as r:
-                    data = await r.json()
-                bots  = data.get("bots", [])
-                count = data.get("count", 0)
+                # Count active bots directly from connected clients (no external API needed)
+                bots  = [{"player": k} for k in list(clients.keys())]
+                count = len(bots)
                 pct   = round((count / max(TOTAL_BOTS, 1)) * 100, 1)
                 trend = ""
                 if _last_bot_count is not None:
