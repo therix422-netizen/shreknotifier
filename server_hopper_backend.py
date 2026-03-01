@@ -41,7 +41,8 @@ used_ts  = {}        # server_id -> timestamp when last used
 seen     = set()     # already processed server IDs
 waiters  = []        # (future, who, current_job) — clients waiting
 clients  = {}        # who -> server_id they are on right now
-viewers  = set()     # WebSockets connected as viewers (receive found events)
+viewers   = set()     # WebSockets connected as viewers (receive found events)
+found_seen = {}       # "job_id:name" -> timestamp, dedup so only 1 webhook per find (10min TTL)
 
 # ── GIVE / RELEASE ───────────────────────────────────────────────
 def give(who, current_job=None):
@@ -159,6 +160,65 @@ async def cleanup():
             seen.discard(s)
         print(f"[CLEAN] recycled={len(expired)} q={len(queue)} used={len(in_use)} clients={len(clients)} waiters={len(waiters)}")
 
+
+# ================================================================
+# DISCORD WEBHOOK (sent once per unique job+brainrot)
+# ================================================================
+WEBHOOKS = {
+    "10m+":  "https://ptb.discord.com/api/webhooks/1466150960631124077/uSYu5q9WRgbVGc--fYMh8v8oKv8px-6fKsshPhXUPRuejrXRX3fBUnAVenmv792iAdLw",
+    "50m+":  "https://ptb.discord.com/api/webhooks/1466151003249446953/ptYOg2FccEIbO45D7jEtxV0DLSTUjsZ7Wk_P_jcANpgMq14qKJfspx1RpdCGgh_Jom23",
+    "100m+": "https://ptb.discord.com/api/webhooks/1466151038016028793/9Af0juhrAtmIMPt2JcfPy2Yjqd01VemE6-Il8NH3--0XDICoW17BLz7VOWYZ9XKWj_-f",
+    "500m+": "https://ptb.discord.com/api/webhooks/1466151077438033962/2id4dQig9N_7FK-X9rtNGNYRWjv_PXMGSiIwN-lQ36AAqGDYlrB8u_A_k7R2qGWPH04a",
+    "1b+":   "https://ptb.discord.com/api/webhooks/1466151123944472597/CtZbm3U3Lsi1TGdOfLPqGdziF_0xpZ-cWMqXupUeE3-YEF-BcpJufH5PUBFFlSborgzM",
+}
+HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1466088189260468458/Vi19cPhLJXGckt_0IDjRa6MkGixFznByJ_0BlNmKx0h84VlBgJtrPmtHWmbDHiW3eOPe"
+
+EVERYONE_PING = {"meowl","strawberry elephant","headless horseman","skibidi toilet","la supreme combinasion","ginger gerat","ketupat bros"}
+HERE_PING     = {"dragon gingerini","hydra dragon cannelloni","dragon cannelloni","cerberus"}
+
+def get_category(value):
+    v = float(value or 0)
+    if v >= 1e9:  return "1b+"
+    if v >= 5e8:  return "500m+"
+    if v >= 1e8:  return "100m+"
+    if v >= 5e7:  return "50m+"
+    if v >= 1e7:  return "10m+"
+    return None
+
+async def send_discord_found(entry):
+    name  = entry.get("name", "?")
+    gen   = entry.get("gen", "?")
+    value = entry.get("value", 0)
+    job   = entry.get("job_id", "?")
+    cat   = get_category(value)
+
+    name_lo = name.lower()
+    ping = ""
+    if name_lo in EVERYONE_PING: ping = f"@everyone **{name}** found!"
+    elif name_lo in HERE_PING:   ping = f"@here **{name}** found!"
+
+    embed = {
+        "title":       f"[{cat or '?'}] {name} ({gen})",
+        "description": f"**{name}**\n\n1x {name} : {gen}\n\n**Server:** {job}",
+        "color":       5814783,
+        "footer":      {"text": f"Found by {entry.get('player','?')}"},
+        "timestamp":   entry.get("time", datetime.datetime.utcnow().isoformat() + "Z"),
+    }
+
+    async with aiohttp.ClientSession() as sess:
+        # Category webhook
+        if cat and cat in WEBHOOKS:
+            try:
+                await sess.post(WEBHOOKS[cat], json={"embeds": [embed]})
+            except Exception as e:
+                print(f"[WH ERR] {e}")
+        # Highlights webhook (100m+ only)
+        if value >= 1e8:
+            try:
+                await sess.post(HIGHLIGHTS_URL, json={"content": ping, "embeds": [embed]})
+            except Exception as e:
+                print(f"[WH HIGHLIGHTS ERR] {e}")
+
 # ── WS HANDLER ───────────────────────────────────────────────────
 async def handle(ws, path):
     qp      = parse_qs(urlparse(path).query)
@@ -242,24 +302,43 @@ async def handle(ws, path):
                     await send_next()
 
                 elif t == "found":
-                    # Bot found a brainrot - broadcast to all viewers
-                    entry = {
-                        "type":     "found",
-                        "player":   who,
-                        "name":     msg.get("name", "?"),
-                        "gen":      msg.get("gen", "?"),
-                        "value":    msg.get("value", 0),
-                        "job_id":   msg.get("job_id", "?"),
-                        "time":     datetime.datetime.utcnow().isoformat() + "Z",
-                    }
-                    print(f"[FOUND] {who[:14]} | {msg.get('name')} {msg.get('gen')}")
-                    dead = set()
-                    for v in viewers:
-                        try:
-                            await v.send(json.dumps(entry))
-                        except:
-                            dead.add(v)
-                    viewers.difference_update(dead)
+                    name   = msg.get("name", "?")
+                    job_id = msg.get("job_id", "?")
+                    dedup_key = f"{job_id}:{name}"
+
+                    # Expire old entries (10 min)
+                    now_ts = now()
+                    expired = [k for k, t2 in found_seen.items() if now_ts - t2 > 600]
+                    for k in expired:
+                        del found_seen[k]
+
+                    # Skip if already sent for this server+brainrot combo
+                    if dedup_key in found_seen:
+                        # Already reported - tell bot to skip webhook
+                        print(f"[DEDUP] Skipped {name} on {job_id[:8]}")
+                        await ws.send(json.dumps({"type": "found_ack", "first": False}))
+                    else:
+                        found_seen[dedup_key] = now_ts
+                        entry = {
+                            "type":   "found",
+                            "player": who,
+                            "name":   name,
+                            "gen":    msg.get("gen", "?"),
+                            "value":  msg.get("value", 0),
+                            "job_id": job_id,
+                            "time":   datetime.datetime.utcnow().isoformat() + "Z",
+                        }
+                        print(f"[FOUND] {who[:14]} | {name} {msg.get('gen')}")
+                        # Send Discord webhook once from backend
+                        asyncio.create_task(send_discord_found(entry))
+                        # Broadcast to viewers
+                        dead = set()
+                        for v in viewers:
+                            try:
+                                await v.send(json.dumps(entry))
+                            except:
+                                dead.add(v)
+                        viewers.difference_update(dead)
 
                 elif t == "viewer":
                     # Client wants to receive found events
