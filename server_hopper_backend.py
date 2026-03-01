@@ -356,6 +356,7 @@ BOT_STATUS_API     = "https://status.therixyt4.workers.dev/bots"
 TOTAL_BOTS         = int(os.environ.get("TOTAL_BOTS", "600"))
 STATUS_INTERVAL    = int(os.environ.get("STATUS_INTERVAL", "60"))
 _last_bot_count    = None
+_posting_lock      = False
 MSG_ID_FILE        = "/tmp/status_msg_id.txt"
 
 def _load_msg_id():
@@ -383,7 +384,7 @@ def _power_label(pct):
     return "🔴 Critical"
 
 async def bot_status_loop():
-    global _last_bot_count
+    global _last_bot_count, _posting_lock
     if not BOT_STATUS_WEBHOOK:
         print("[STATUS] No BOT_STATUS_WEBHOOK set, skipping monitor")
         return
@@ -423,30 +424,30 @@ async def bot_status_loop():
                 }
                 payload = {"embeds": [embed]}
 
-                # Try to edit existing message first
-                edited = False
                 if msg_id:
+                    # Try editing existing message
                     async with sess.patch(
                         f"{BOT_STATUS_WEBHOOK}/messages/{msg_id}",
                         json=payload, timeout=aiohttp.ClientTimeout(total=10)
                     ) as r:
                         if r.status in (200, 204):
-                            edited = True
                             print(f"[STATUS] Edited — {count}/{TOTAL_BOTS} bots ({pct}%)")
                         else:
-                            print(f"[STATUS] Edit failed ({r.status}), posting new")
+                            # Message gone, clear ID and post new next iteration
+                            print(f"[STATUS] Edit failed ({r.status}), will post new")
                             msg_id = None
-
-                # Post new if no existing message
-                if not edited:
+                            _save_msg_id("")
+                else:
+                    # Post new message once
                     async with sess.post(
                         f"{BOT_STATUS_WEBHOOK}?wait=true",
                         json=payload, timeout=aiohttp.ClientTimeout(total=10)
                     ) as r:
                         resp = await r.json()
                         msg_id = resp.get("id")
-                        _save_msg_id(msg_id)
-                        print(f"[STATUS] Posted new — {count}/{TOTAL_BOTS} bots ({pct}%)")
+                        if msg_id:
+                            _save_msg_id(msg_id)
+                            print(f"[STATUS] Posted new — {count}/{TOTAL_BOTS} bots ({pct}%)")
         except Exception as e:
             print(f"[STATUS ERR] {e}")
         await asyncio.sleep(STATUS_INTERVAL)
