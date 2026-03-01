@@ -205,7 +205,7 @@ WEBHOOKS = {
     "500m+": "https://ptb.discord.com/api/webhooks/1466151077438033962/2id4dQig9N_7FK-X9rtNGNYRWjv_PXMGSiIwN-lQ36AAqGDYlrB8u_A_k7R2qGWPH04a",
     "1b+":   "https://ptb.discord.com/api/webhooks/1466151123944472597/CtZbm3U3Lsi1TGdOfLPqGdziF_0xpZ-cWMqXupUeE3-YEF-BcpJufH5PUBFFlSborgzM",
 }
-HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1477466254276165722/i8STDJlTe8QHCDQkgKHlhYWGd3O_mtg8A4r86iHz1lLfD2S9zU6Vek8lDaBFZSuYo1j1"
+HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1466088189260468458/Vi19cPhLJXGckt_0IDjRa6MkGixFznByJ_0BlNmKx0h84VlBgJtrPmtHWmbDHiW3eOPe"
 
 EVERYONE_PING = {"meowl","strawberry elephant","headless horseman","skibidi toilet","la supreme combinasion","ginger gerat","ketupat bros"}
 HERE_PING     = {"dragon gingerini","hydra dragon cannelloni","dragon cannelloni","cerberus"}
@@ -220,146 +220,6 @@ def get_category(value):
     return None
 
 # Brainrot images
-IMAGES = {
-    "headless horseman":        "https://static.wikia.nocookie.net/stealabr/images/f/ff/Headlesshorseman.png/revision/latest?cb=20251030020338",
-    "strawberry elephant":      "https://static.wikia.nocookie.net/stealabr/images/5/58/Strawberryelephant.png/revision/latest?cb=20250830235735",
-    "meowl":                    "https://static.wikia.nocookie.net/stealabr/images/b/b8/Clear_background_clear_meowl_image.png/revision/latest?cb=20251022133154",
-    "skibidi toilet":           "https://static.wikia.nocookie.net/stealabr/images/3/34/Skibidi_toilet.png/revision/latest?cb=20251227221221",
-    "dragon gingerini":         "https://static.wikia.nocookie.net/stealabr/images/3/3a/DragonGingerini.png/revision/latest?cb=20251221003419",
-    "la supreme combinasion":   "https://static.wikia.nocookie.net/stealabr/images/5/52/SupremeCombinasion.png/revision/latest?cb=20250825130920",
-    "ginger gerat":             "https://static.wikia.nocookie.net/stealabr/images/8/85/GingerGerat.png/revision/latest?cb=20251227115546",
-    "ketupat bros":             "https://static.wikia.nocookie.net/stealabr/images/4/4d/Ketupat_Bros.png/revision/latest?cb=20260207220106",
-    "hydra dragon cannelloni":  "https://static.wikia.nocookie.net/stealabr/images/e/ee/Hydra_Dragon_Cannelloni.png/revision/latest?cb=20260207220000",
-    "dragon cannelloni":        "https://static.wikia.nocookie.net/stealabr/images/3/31/Nah_uh.png/revision/latest?cb=20250919124457",
-    "cerberus":                 "https://static.wikia.nocookie.net/stealabr/images/4/45/Cerberus.png/revision/latest?cb=20260217181804",
-    "capitano moby":            "https://static.wikia.nocookie.net/stealabr/images/e/ef/Moby.png/revision/latest?cb=20251101185416",
-    "cooki and milki":          "https://static.wikia.nocookie.net/stealabr/images/9/9b/Cooki_and_milki.png/revision/latest?cb=20251106165517",
-    "burguru and fryuru":       "https://static.wikia.nocookie.net/stealabr/images/6/65/Burguro-And-Fryuro.png/revision/latest?cb=20251007133840",
-    "fragrama and chocrama":    "https://static.wikia.nocookie.net/stealabr/images/5/56/Fragrama.png/revision/latest?cb=20251109011733",
-    "spooky and pumpky":        "https://static.wikia.nocookie.net/stealabr/images/d/d6/Spookypumpky.png/revision/latest?cb=20251012023638",
-    "reinito sleighito":        "https://static.wikia.nocookie.net/stealabr/images/2/27/Reinito.png/revision/latest?cb=20251219225020",
-    "rosey and teddy":          "https://static.wikia.nocookie.net/stealabr/images/9/9b/Rosey_and_Teddy.png/revision/latest?cb=20260208175726",
-    "love love bear":           "https://static.wikia.nocookie.net/stealabr/images/b/bf/Love_Love_Bear.png/revision/latest?cb=20260208190306",
-    "la casa boo":              "https://static.wikia.nocookie.net/stealabr/images/d/de/Casa_Booo.png/revision/latest?cb=20251220094233",
-    "popcuru and fizzuru":      "https://static.wikia.nocookie.net/stealabr/images/a/a9/Popuru_and_Fizzuru.png/revision/latest?cb=20260213204324",
-    "festive 67":               "https://static.wikia.nocookie.net/stealabr/images/c/c8/TransparentFestive67.png/revision/latest?cb=20251219224148",
-    "los amigos":               "https://static.wikia.nocookie.net/stealabr/images/0/01/Los_Amigos.png/revision/latest?cb=20260222122638",
-    "los sekolahs":             "https://static.wikia.nocookie.net/stealabr/images/d/d8/Los_Sekolah%E2%80%99s.png/revision/latest?cb=20260222122334",
-    "sammyni fattini":          "https://static.wikia.nocookie.net/stealabr/images/0/01/Sammyni_Fattini.png/revision/latest?cb=20260222122205",
-    "la food combinasion":      "https://static.wikia.nocookie.net/stealabr/images/5/5a/La_Food_Combination.png/revision/latest?cb=20260222122456",
-    "garama and madundung":     "https://static.wikia.nocookie.net/stealabr/images/e/ee/Garamadundung.png/revision/latest?cb=20250816022557",
-    "la secret combinasion":    "https://static.wikia.nocookie.net/stealabr/images/f/f2/Lasecretcombinasion.png/revision/latest?cb=20251006044448",
-    "ketchuru and musturu":     "https://static.wikia.nocookie.net/stealabr/images/1/14/Ketchuru.png/revision/latest?cb=20251021163857",
-    "los tacoritas":            "https://static.wikia.nocookie.net/stealabr/images/4/40/My_kids_will_also_rob_you.png/revision/latest?cb=20250921171602",
-    "tralaledon":               "https://static.wikia.nocookie.net/stealabr/images/7/79/Brr_Brr_Patapem.png/revision/latest?cb=20250909171639",
-    "tang tang kelentang":      "https://static.wikia.nocookie.net/stealabr/images/c/ce/TangTangVfx.png/revision/latest?cb=20251014025849",
-    "lavadorito spinito":       "https://static.wikia.nocookie.net/stealabr/images/f/ff/Lavadorito_Spinito.png/revision/latest?cb=20251123122422",
-    "ketupat kepat":            "https://static.wikia.nocookie.net/stealabr/images/a/ac/KetupatKepat.png/revision/latest?cb=20251220220246",
-    "los hotspotsitos":         "https://static.wikia.nocookie.net/stealabr/images/6/69/Loshotspotsitos.png/revision/latest?cb=20251226204212",
-    "tictac sahur":             "https://static.wikia.nocookie.net/stealabr/images/6/6f/Time_moving_slow.png/revision/latest?cb=20251103171934",
-    "nuclearo dinossauro":      "https://static.wikia.nocookie.net/stealabr/images/c/c6/Nuclearo_Dinosauro.png/revision/latest?cb=20250902180735",
-    "los primos":               "https://static.wikia.nocookie.net/stealabr/images/9/9b/LosPrimos.png/revision/latest?cb=20251006044831",
-    "w or l":                   "https://static.wikia.nocookie.net/stealabr/images/2/28/Win_Or_Lose.png/revision/latest?cb=20251123084507",
-    "chillin chilli":           "https://static.wikia.nocookie.net/stealabr/images/e/e0/Chilin.png/revision/latest?cb=20251226231712",
-    "orcaledon":                "https://static.wikia.nocookie.net/stealabr/images/a/a6/Orcaledon.png/revision/latest?cb=20251119170121",
-    "la taco combinasion":      "https://static.wikia.nocookie.net/stealabr/images/8/84/Latacocombi.png/revision/latest?cb=20251030015001",
-    "los spaghettis":           "https://static.wikia.nocookie.net/stealabr/images/3/33/Los_Spaghettis.png/revision/latest?cb=20260129153809",
-    "swaggy bros":              "https://static.wikia.nocookie.net/stealabr/images/8/85/Swaggy_Bros.png/revision/latest?cb=20251223161444",
-    "eviledon":                 "https://static.wikia.nocookie.net/stealabr/images/7/78/Eviledonn.png/revision/latest?cb=20251012023919",
-    "las sis":                  "https://static.wikia.nocookie.net/stealabr/images/e/e8/Las_Sis.png/revision/latest?cb=20250914042020",
-    "los bros":                 "https://static.wikia.nocookie.net/stealabr/images/5/53/BROOOOOOOO.png/revision/latest?cb=20250909152032",
-    "fishino clownino":         "https://static.wikia.nocookie.net/stealabr/images/d/d6/Fishino_Clownino.png/revision/latest?cb=20251123122601",
-    "la romantic grande":       "https://static.wikia.nocookie.net/stealabr/images/6/69/La_Romantic_Grande2.png/revision/latest?cb=20260221005900",
-    "la spooky grande":         "https://static.wikia.nocookie.net/stealabr/images/5/51/Spooky_Grande.png/revision/latest?cb=20251012022949",
-    "tuff toucan":              "https://static.wikia.nocookie.net/stealabr/images/3/3e/TuffToucan.png/revision/latest?cb=20260101134815",
-    "la extinct grande":        "https://static.wikia.nocookie.net/stealabr/images/c/cd/La_Extinct_Grande.png/revision/latest?cb=20250914041757",
-    "los cucarachas":           "https://tse3.mm.bing.net/th/id/OIP.dyL--tvFmcwBltF4sAruvAAAAA?rs=1&pid=ImgDetMain&o=7&rm=3",
-    "bacuru and egguru":        "https://static.wikia.nocookie.net/stealabr/images/b/b5/Bacuru_and_Egguru.png/revision/latest/scale-to-width-down/1000?cb=20260207220129",
-    "la grande combinasion":    "https://static.wikia.nocookie.net/stealabr/images/d/d8/Carti.png/revision/latest?cb=20250909171004",
-    "money money puggy":        "https://static.wikia.nocookie.net/stealabr/images/0/09/Money_money_puggy.png/revision/latest?cb=20260217180308",
-    "los 67":                   "https://static.wikia.nocookie.net/stealabr/images/d/db/Los-67.png/revision/latest?cb=20251103171526",
-    "pumpkini spyderini":       "https://static.wikia.nocookie.net/stealabr/images/d/da/Sammypumpkin.png/revision/latest?cb=20251030021310",
-    "spinny hammy":             "https://static.wikia.nocookie.net/stealabr/images/7/7d/SpinnyHammy.png/revision/latest?cb=20260124214012",
-    "los mobilis":              "https://static.wikia.nocookie.net/stealabr/images/2/27/Losmobil.png/revision/latest?cb=20251012023251",
-    "los candies":              "https://static.wikia.nocookie.net/stealabr/images/f/f9/Candy%21.png/revision/latest?cb=20251218124920",
-    "lovin rose":               "https://static.wikia.nocookie.net/stealabr/images/a/ab/LovinRose.png/revision/latest?cb=20260208180100",
-    "chipso and queso":         "https://static.wikia.nocookie.net/stealabr/images/f/f8/Chipsoqueso.png/revision/latest?cb=20251030022105",
-    "chicleteira cupideira":    "https://steal-a-brainrot.org/_next/image?url=%2Fimages%2Fbrainrots%2Fchicleteira-cupideira.webp&w=1920&q=90",
-    "rosetti tualetti":         "https://static.wikia.nocookie.net/stealabr/images/f/f8/Rossetti_Tualetti.png/revision/latest?cb=20260208175516",
-    "swag soda":                "https://static.wikia.nocookie.net/stealabr/images/9/9f/Swag_Soda.png/revision/latest?cb=20251116003702",
-    "los combinasionas":        "https://static.wikia.nocookie.net/stealabr/images/3/36/Stop_taking_my_chips_im_just_a_baybeh.png/revision/latest?cb=20250909223756",
-    "los spooky combinasionas": "https://static.wikia.nocookie.net/stealabr/images/8/8a/Lospookycombi.png/revision/latest?cb=20251030015823",
-    "karkerkar combinasion":    "https://static.wikia.nocookie.net/stealabr/images/2/2d/Holy_falloff.png/revision/latest?cb=20250909231025",
-    "celularcini viciosini":    "https://static.wikia.nocookie.net/stealabr/images/3/38/DO_NOT_GRAB_MY_PHONE%21%21%21.png/revision/latest?cb=20250914173250",
-    "los puggies":              "https://static.wikia.nocookie.net/stealabr/images/c/c8/LosPuggies2.png/revision/latest?cb=20251109012744",
-    "chicleteira noelteira":    "https://static.wikia.nocookie.net/stealabr/images/b/b3/Noel.png/revision/latest?cb=20251207005453",
-    "gobblino uniciclino":      "https://static.wikia.nocookie.net/stealabr/images/c/c5/Gobblino_Uniciclino.png/revision/latest?cb=20251126164826",
-    "money money reindeer":     "https://static.wikia.nocookie.net/stealabr/images/e/ec/MoneyMoneyReindeer.png/revision/latest?cb=20251221003105",
-    "los jolly combinasionas":  "https://static.wikia.nocookie.net/stealabr/images/7/7b/Los_jollycombos.png/revision/latest?cb=20251227115909",
-    "los 25":                   "https://static.wikia.nocookie.net/stealabr/images/9/9b/Transparent_Los_25.png/revision/latest?cb=20251218122100",
-    "chimnino":                 "https://static.wikia.nocookie.net/stealabr/images/c/c5/Chimnino.png/revision/latest?cb=20251219223904",
-    "noo my heart":             "https://static.wikia.nocookie.net/stealabr/images/7/75/NooMyLoveheart.png/revision/latest?cb=20260208175244",
-    "los sweethearts":          "https://static.wikia.nocookie.net/stealabr/images/e/ed/Los_Sweetheart_s.png/revision/latest?cb=20260221000709",
-}
-
-PRIORITY_ORDER = [
-    "headless horseman","strawberry elephant","meowl","skibidi toilet",
-    "dragon gingerini","la supreme combinasion","ginger gerat","ketupat bros",
-    "hydra dragon cannelloni","dragon cannelloni","cerberus","capitano moby",
-    "cooki and milki","burguru and fryuru",
-]
-
-async def send_discord_found(entry):
-    name  = entry.get("name", "?")
-    gen   = entry.get("gen", "?")
-    value = float(entry.get("value", 0))
-    job   = entry.get("job_id", "?")
-    player = entry.get("player", "?")
-    cat   = get_category(value)
-    name_lo = name.lower()
-
-    # Ping
-    ping = ""
-    if name_lo in EVERYONE_PING: ping = f"@everyone **{name}** found!"
-    elif name_lo in HERE_PING:   ping = f"@here **{name}** found!"
-
-    # Color
-    color = 5814783
-    if name_lo in EVERYONE_PING: color = 16711680
-    elif name_lo in HERE_PING:   color = 16776960
-
-    # Description
-    desc = f"**Brainrots**\n\n1x {name} : {gen}"
-
-    embed = {
-        "title":     f"[{cat or '?'}] {name} ({gen})",
-        "description": desc,
-        "color":     color,
-        "footer":    {"text": f"Found by {player} | discord.gg/shreknotifier"},
-        "timestamp": entry.get("time", datetime.datetime.utcnow().isoformat() + "Z"),
-    }
-
-    # Add image if available
-    img = IMAGES.get(name_lo)
-    if img:
-        embed["thumbnail"] = {"url": img}
-
-    async with aiohttp.ClientSession() as sess:
-        # Category webhook
-        if cat and cat in WEBHOOKS:
-            try:
-                await sess.post(WEBHOOKS[cat], json={"embeds": [embed]})
-                print(f"[WH] {cat} webhook sent for {name}")
-            except Exception as e:
-                print(f"[WH ERR] {e}")
-        # Highlights webhook (100m+)
-        if value >= 1e8:
-            try:
-                await sess.post(HIGHLIGHTS_URL, json={"content": ping, "embeds": [embed]})
-                print(f"[WH] highlights webhook sent for {name}")
-            except Exception as e:
-                print(f"[WH HIGHLIGHTS ERR] {e}")
-
 # ── WS HANDLER ───────────────────────────────────────────────────
 async def handle(ws, path):
     qp      = parse_qs(urlparse(path).query)
@@ -478,8 +338,7 @@ async def handle(ws, path):
                             "time":   datetime.datetime.utcnow().isoformat() + "Z",
                         }
                         print(f"[FOUND] {who[:14]} | {name} {msg.get('gen')}")
-                        # Send Discord webhook once from backend
-                        asyncio.create_task(send_discord_found(entry))
+                        await ws.send(json.dumps({"type": "found_ack", "first": True, "name": name, "gen": msg.get("gen","?"), "value": msg.get("value",0), "job_id": job_id}))
                         # Broadcast to viewers
                         dead = set()
                         for v, v_key in list(viewer_keys.items()):
