@@ -161,9 +161,24 @@ async def cleanup():
 
 # ── WS HANDLER ───────────────────────────────────────────────────
 async def handle(ws, path):
-    qp  = parse_qs(urlparse(path).query)
-    who = qp.get("who", ["?"])[0]
-    print(f"[+] {who[:20]} connected | total={len(clients)+1}")
+    qp      = parse_qs(urlparse(path).query)
+    who     = qp.get("who", ["?"])[0]
+    is_view = qp.get("viewer", ["0"])[0] == "1"
+    print(f"[+] {who[:20]} connected viewer={is_view} | total={len(clients)+1}")
+
+    # Viewer mode - just receive found events, no hopping
+    if is_view:
+        viewers.add(ws)
+        await ws.send(json.dumps({"type": "viewer_ok", "msg": "Connected - waiting for brainrot finds..."}))
+        try:
+            async for raw in ws:
+                pass  # viewers don't send anything
+        except Exception:
+            pass
+        finally:
+            viewers.discard(ws)
+            print(f"[-] viewer {who[:20]} left")
+        return
 
     current_job = None
 
