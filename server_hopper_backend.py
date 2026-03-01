@@ -393,10 +393,8 @@ async def bot_status_loop():
                     else: trend = " →"
                 _last_bot_count = count
 
-                bot_list = "
-".join(f"{b['player']}" for b in bots[:30])
-                if count > 30: bot_list += f"
-... +{count-30} more"
+                bot_list = "\n".join(f"{b['player']}" for b in bots[:30])
+                if count > 30: bot_list += f"\n... +{count-30} more"
                 if not bot_list: bot_list = "No active bots"
 
                 now_str = datetime.datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
@@ -405,9 +403,7 @@ async def bot_status_loop():
                     "color": _power_color(pct),
                     "fields": [
                         {"name": f"{pct}% power{trend}", "value": f"**{_power_label(pct)}**", "inline": False},
-                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"```
-{bot_list}
-```", "inline": False},
+                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"```\n{bot_list}\n```", "inline": False},
                     ],
                     "footer": {"text": f"Last updated • {now_str}"},
                     "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
