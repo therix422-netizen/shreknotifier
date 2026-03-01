@@ -391,6 +391,26 @@ async def bot_status_loop():
     await asyncio.sleep(10)
     print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
     msg_id = _load_msg_id()
+
+    # On startup, try to find existing status message in channel
+    if not msg_id:
+        try:
+            async with aiohttp.ClientSession() as sess:
+                # Get webhook info to find channel_id and token
+                wh_parts = BOT_STATUS_WEBHOOK.rstrip("/").split("/")
+                wh_id, wh_token = wh_parts[-2], wh_parts[-1]
+                async with sess.get(
+                    f"https://discord.com/api/webhooks/{wh_id}/{wh_token}/messages/@original",
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        msg_id = data.get("id")
+                        if msg_id:
+                            _save_msg_id(msg_id)
+                            print(f"[STATUS] Recovered msg_id={msg_id}")
+        except Exception:
+            pass
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
@@ -405,17 +425,13 @@ async def bot_status_loop():
                     else: trend = " →"
                 _last_bot_count = count
 
-                bot_list = "\n".join(f"{b['player']}" for b in bots[:30])
-                if count > 30: bot_list += f"\n... +{count-30} more"
-                if not bot_list: bot_list = "No active bots"
-
                 now_str = datetime.datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
                 embed = {
                     "title": "🤖 Bot Status",
                     "color": _power_color(pct),
                     "fields": [
                         {"name": f"{pct}% power{trend}", "value": f"**{_power_label(pct)}**", "inline": False},
-                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"```\n{bot_list}\n```", "inline": False},
+                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"**{count}** bots online", "inline": False},
                     ],
                     "footer": {"text": f"Last updated • {now_str}"},
                     "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
