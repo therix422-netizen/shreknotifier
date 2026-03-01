@@ -205,7 +205,7 @@ WEBHOOKS = {
     "500m+": "https://ptb.discord.com/api/webhooks/1466151077438033962/2id4dQig9N_7FK-X9rtNGNYRWjv_PXMGSiIwN-lQ36AAqGDYlrB8u_A_k7R2qGWPH04a",
     "1b+":   "https://ptb.discord.com/api/webhooks/1466151123944472597/CtZbm3U3Lsi1TGdOfLPqGdziF_0xpZ-cWMqXupUeE3-YEF-BcpJufH5PUBFFlSborgzM",
 }
-HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1466088189260468458/Vi19cPhLJXGckt_0IDjRa6MkGixFznByJ_0BlNmKx0h84VlBgJtrPmtHWmbDHiW3eOPe"
+HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1477466254276165722/i8STDJlTe8QHCDQkgKHlhYWGd3O_mtg8A4r86iHz1lLfD2S9zU6Vek8lDaBFZSuYo1j1"
 
 EVERYONE_PING = {"meowl","strawberry elephant","headless horseman","skibidi toilet","la supreme combinasion","ginger gerat","ketupat bros"}
 HERE_PING     = {"dragon gingerini","hydra dragon cannelloni","dragon cannelloni","cerberus"}
