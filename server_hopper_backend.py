@@ -5,7 +5,8 @@
 # python server_hopper_backend.py
 # ================================================================
 
-import asyncio, json, time, datetime, threading, os
+import asyncio, json, time, datetime, threading, os, hashlib, base64, hmac
+from Crypto.Cipher import ChaCha20_Poly1305
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
@@ -16,6 +17,36 @@ import requests as req_lib
 # CONFIG
 # ================================================================
 PORT            = int(os.environ.get("PORT", 3001))  # Railway sets PORT automatically
+
+# ── AUTH + CHACHA20-POLY1305 ─────────────────────────────────────
+# Set in Railway environment variables:
+#   AUTH_KEYS  = comma-separated valid keys  e.g. shreknotifiiifier23242!
+#   ENC_SECRET = encryption secret (shared with Lua clients)
+_raw_keys  = os.environ.get("AUTH_KEYS",  "shreknotifiiifier23242!")
+AUTH_KEYS  = set(k.strip() for k in _raw_keys.split(",") if k.strip())
+ENC_SECRET = os.environ.get("ENC_SECRET", "xK9#m5P2$vL7nQ4@32wR8")
+
+def _hkdf32(ikm: bytes, salt: bytes = b"", info: bytes = b"") -> bytes:
+    """HKDF-SHA256, extract+expand, 32 bytes output"""
+    if not salt: salt = b" " * 32
+    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+    return hmac.new(prk, info + b"", hashlib.sha256).digest()
+
+def derive_key(auth_key: str) -> bytes:
+    """Derive per-client encryption key from shared secret + auth key"""
+    return _hkdf32(
+        ikm  = ENC_SECRET.encode(),
+        salt = auth_key.encode(),
+        info = b"shrek-chacha20-v1"
+    )
+
+def encrypt_payload(data: str, auth_key: str) -> str:
+    """ChaCha20-Poly1305 encrypt JSON string -> base64(nonce+tag+ct)"""
+    key    = derive_key(auth_key)
+    nonce  = os.urandom(12)
+    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
+    ct, tag = cipher.encrypt_and_digest(data.encode())
+    return base64.b64encode(nonce + tag + ct).decode()
 PLACE_ID        = "109983668079237"
 MIN_P           = 6
 MAX_P           = 8
@@ -41,7 +72,7 @@ used_ts  = {}        # server_id -> timestamp when last used
 seen     = set()     # already processed server IDs
 waiters  = []        # (future, who, current_job) — clients waiting
 clients  = {}        # who -> server_id they are on right now
-viewers   = set()     # WebSockets connected as viewers (receive found events)
+viewer_keys = {}      # ws -> auth_key, viewers that receive found events (ChaCha20 encrypted)
 found_seen = {}       # "job_id:name" -> timestamp, dedup so only 1 webhook per find (10min TTL)
 
 # ── GIVE / RELEASE ───────────────────────────────────────────────
@@ -226,9 +257,17 @@ async def handle(ws, path):
     is_view = qp.get("viewer", ["0"])[0] == "1"
     print(f"[+] {who[:20]} connected viewer={is_view} | total={len(clients)+1}")
 
+    # ── AUTH CHECK ───────────────────────────────────────────────
+    auth_key = qp.get("key", [""])[0]
+    if auth_key not in AUTH_KEYS:
+        print(f"[AUTH] Rejected {who[:20]} — invalid key: {auth_key[:16]}")
+        await ws.send(json.dumps({"type": "error", "msg": "Invalid auth key"}))
+        await ws.close()
+        return
+
     # Viewer mode - just receive found events, no hopping
     if is_view:
-        viewers.add(ws)
+        viewer_keys[ws] = auth_key
         await ws.send(json.dumps({"type": "viewer_ok", "msg": "Connected - waiting for brainrot finds..."}))
         try:
             async for raw in ws:
@@ -236,7 +275,7 @@ async def handle(ws, path):
         except Exception:
             pass
         finally:
-            viewers.discard(ws)
+            viewer_keys.pop(ws, None)
             print(f"[-] viewer {who[:20]} left")
         return
 
@@ -333,12 +372,13 @@ async def handle(ws, path):
                         asyncio.create_task(send_discord_found(entry))
                         # Broadcast to viewers
                         dead = set()
-                        for v in viewers:
+                        for v, v_key in list(viewer_keys.items()):
                             try:
-                                await v.send(json.dumps(entry))
+                                encrypted = encrypt_payload(json.dumps(entry), v_key)
+                                await v.send(json.dumps({"type": "enc", "d": encrypted}))
                             except:
                                 dead.add(v)
-                        viewers.difference_update(dead)
+                        for d in dead: viewer_keys.pop(d, None)
 
                 elif t == "viewer":
                     # Client wants to receive found events
@@ -355,7 +395,7 @@ async def handle(ws, path):
     finally:
         free(who)
         drain_waiters()
-        viewers.discard(ws)
+        viewer_keys.pop(ws, None)
         print(f"[-] {who[:20]} left | total={len(clients)}")
 
 # ================================================================
