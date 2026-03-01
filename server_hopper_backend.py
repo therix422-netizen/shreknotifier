@@ -13,7 +13,7 @@ except ImportError:
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
-import websockets.server as ws_servera
+import websockets.server as ws_server
 import requests as req_lib
 
 # ================================================================
@@ -31,7 +31,7 @@ ENC_SECRET = os.environ.get("ENC_SECRET", "xK9#m5P2$vL7nQ4@32wR8")
 
 def _hkdf32(ikm: bytes, salt: bytes = b"", info: bytes = b"") -> bytes:
     """HKDF-SHA256, extract+expand, 32 bytes output"""
-    if not salt: salt = b" " * 32
+    if not salt: salt = bytes(32)
     prk = hmac.new(salt, ikm, hashlib.sha256).digest()
     return hmac.new(prk, info + b"", hashlib.sha256).digest()
 
