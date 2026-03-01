@@ -392,27 +392,12 @@ async def bot_status_loop():
         return
     await asyncio.sleep(10)
     print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
-    msg_id = _load_msg_id()
 
-    # On startup, try to find existing status message in channel
-    if not msg_id:
-        try:
-            async with aiohttp.ClientSession() as sess:
-                # Get webhook info to find channel_id and token
-                wh_parts = BOT_STATUS_WEBHOOK.rstrip("/").split("/")
-                wh_id, wh_token = wh_parts[-2], wh_parts[-1]
-                async with sess.get(
-                    f"https://discord.com/api/webhooks/{wh_id}/{wh_token}/messages/@original",
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as r:
-                    if r.status == 200:
-                        data = await r.json()
-                        msg_id = data.get("id")
-                        if msg_id:
-                            _save_msg_id(msg_id)
-                            print(f"[STATUS] Recovered msg_id={msg_id}")
-        except Exception:
-            pass
+    # Load msg_id: env var takes priority (set STATUS_MSG_ID in Railway after first post)
+    msg_id = os.environ.get("STATUS_MSG_ID", "").strip() or _load_msg_id()
+    if msg_id:
+        print(f"[STATUS] Using msg_id={msg_id}")
+
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
