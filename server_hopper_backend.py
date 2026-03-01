@@ -59,7 +59,7 @@ COOLDOWN        = 90         # seconds before a used server can be reused
 
 # Bot status monitor
 BOT_API_URL     = "https://status.therixyt4.workers.dev/bots"
-WEBHOOK_URL     = "YOUR_DISCORD_WEBHOOK_HERE"  # <- paste your webhook
+BOT_API_URL     = "https://status.therixyt4.workers.dev/bots"
 TOTAL_BOTS      = 600        # total number of bots you own
 STATUS_INTERVAL = 300        # check every 5 minutes
 
@@ -350,112 +350,92 @@ async def handle(ws, path):
         viewer_keys.pop(ws, None)
         print(f"[-] {who[:20]} left | total={len(clients)}")
 
-# ================================================================
-# BOT STATUS MONITOR
-# ================================================================
-_message_id  = None
-_last_count  = None
-
-def _get_bots():
-    try:
-        r = req_lib.get(BOT_API_URL, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        return data.get("bots", []), data.get("count", 0)
-    except Exception as e:
-        print(f"[BOT] API fetch failed: {e}")
-        return [], 0
+# ── BOT STATUS MONITOR ───────────────────────────────────────────
+BOT_STATUS_WEBHOOK = os.environ.get("BOT_STATUS_WEBHOOK", "https://ptb.discord.com/api/webhooks/1477758597961089258/GDZXg7MBzeabPNrMTSHzKNNPa9iFnT16xgEnO4brL6J8BnpUFxCBnw9dX7Sa98F9Tm8Z")
+BOT_STATUS_API     = "https://status.therixyt4.workers.dev/bots"
+TOTAL_BOTS         = int(os.environ.get("TOTAL_BOTS", "40"))
+STATUS_INTERVAL    = int(os.environ.get("STATUS_INTERVAL", "60"))
+_status_message_id = None
+_last_bot_count    = None
 
 def _power_color(pct):
-    if pct >= 80: return 0x00ff88   # green
-    if pct >= 50: return 0xffcc00   # yellow
-    if pct >= 20: return 0xff8800   # orange
-    return 0xff3333                  # red
+    if pct >= 80: return 0x00ff88
+    if pct >= 50: return 0xffcc00
+    if pct >= 20: return 0xff8800
+    return 0xff3333
 
 def _power_label(pct):
-    if pct >= 80: return "High"
-    if pct >= 50: return "Moderate"
-    if pct >= 20: return "Low"
-    return "Critical"
+    if pct >= 80: return "🟢 High"
+    if pct >= 50: return "🟡 Moderate"
+    if pct >= 20: return "🟠 Low"
+    return "🔴 Critical"
 
-def _build_embed(bots, count):
-    pct   = round((count / TOTAL_BOTS) * 100, 1)
-    label = _power_label(pct)
-    color = _power_color(pct)
-
-    # Trend arrow
-    trend = ""
-    if _last_count is not None:
-        if count > _last_count:   trend = " ↑"
-        elif count < _last_count: trend = " ↓"
-        else:                     trend = " →"
-
-    now_str = datetime.datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
-
-    return {
-        "title": "Bot Status",
-        "color": color,
-        "fields": [
-            {
-                "name":   f"{pct}% power{trend}",
-                "value":  f"**Status**\n{label}",
-                "inline": False,
-            },
-            {
-                "name":   "Bots",
-                "value":  str(count),
-                "inline": False,
-            },
-        ],
-        "footer":    {"text": f"Last updated • {now_str}"},
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-    }
-
-def _post_webhook(embed):
-    global _message_id
-    if WEBHOOK_URL == "YOUR_DISCORD_WEBHOOK_HERE":
-        print("[BOT] Webhook URL not set — skipping Discord update")
+async def bot_status_loop():
+    global _status_message_id, _last_bot_count
+    if not BOT_STATUS_WEBHOOK:
+        print("[STATUS] No BOT_STATUS_WEBHOOK set, skipping monitor")
         return
-    payload = {"embeds": [embed]}
-    try:
-        if _message_id:
-            r = req_lib.patch(f"{WEBHOOK_URL}/messages/{_message_id}", json=payload, timeout=10)
-            if r.status_code == 404:
-                _message_id = None
-                _post_webhook(embed)
-                return
-            r.raise_for_status()
-            print(f"[BOT] Message updated (id={_message_id})")
-        else:
-            r = req_lib.post(f"{WEBHOOK_URL}?wait=true", json=payload, timeout=10)
-            r.raise_for_status()
-            _message_id = r.json().get("id")
-            print(f"[BOT] Message created (id={_message_id})")
-    except Exception as e:
-        print(f"[BOT] Webhook error: {e}")
-
-def _monitor_loop():
-    global _last_count
-    print(f"[BOT] Monitor started | total={TOTAL_BOTS} | interval={STATUS_INTERVAL}s")
+    await asyncio.sleep(10)
+    print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
     while True:
         try:
-            bots, count = _get_bots()
-            pct = round((count / TOTAL_BOTS) * 100, 1)
-            trend = ""
-            if _last_count is not None:
-                diff = count - _last_count
-                trend = f" ({'+' if diff >= 0 else ''}{diff})"
-            print(f"[BOT] Active: {count}/{TOTAL_BOTS} ({pct}%){trend}")
-            embed = _build_embed(bots, count)
-            _post_webhook(embed)
-            _last_count = count
-        except Exception as e:
-            print(f"[BOT] Monitor error: {e}")
-        time.sleep(STATUS_INTERVAL)
+            async with aiohttp.ClientSession() as sess:
+                # Fetch bot list
+                async with sess.get(BOT_STATUS_API, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                    data = await r.json()
+                bots  = data.get("bots", [])
+                count = data.get("count", 0)
+                pct   = round((count / max(TOTAL_BOTS, 1)) * 100, 1)
+                trend = ""
+                if _last_bot_count is not None:
+                    if count > _last_bot_count: trend = " ↑"
+                    elif count < _last_bot_count: trend = " ↓"
+                    else: trend = " →"
+                _last_bot_count = count
 
-# ================================================================
-# MAIN
-# ================================================================
+                bot_list = "
+".join(f"{b['player']}" for b in bots[:30])
+                if count > 30: bot_list += f"
+... +{count-30} more"
+                if not bot_list: bot_list = "No active bots"
+
+                now_str = datetime.datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
+                embed = {
+                    "title": "🤖 Bot Status",
+                    "color": _power_color(pct),
+                    "fields": [
+                        {"name": f"{pct}% power{trend}", "value": f"**{_power_label(pct)}**", "inline": False},
+                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"```
+{bot_list}
+```", "inline": False},
+                    ],
+                    "footer": {"text": f"Last updated • {now_str}"},
+                    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                }
+                payload = {"embeds": [embed]}
+
+                # Edit or post
+                if _status_message_id:
+                    async with sess.patch(
+                        f"{BOT_STATUS_WEBHOOK}/messages/{_status_message_id}",
+                        json=payload, timeout=aiohttp.ClientTimeout(total=10)
+                    ) as r:
+                        if r.status == 404:
+                            _status_message_id = None
+                        else:
+                            print(f"[STATUS] Updated — {count}/{TOTAL_BOTS} bots ({pct}%)")
+                if not _status_message_id:
+                    async with sess.post(
+                        f"{BOT_STATUS_WEBHOOK}?wait=true",
+                        json=payload, timeout=aiohttp.ClientTimeout(total=10)
+                    ) as r:
+                        resp = await r.json()
+                        _status_message_id = resp.get("id")
+                        print(f"[STATUS] Posted — {count}/{TOTAL_BOTS} bots ({pct}%)")
+        except Exception as e:
+            print(f"[STATUS ERR] {e}")
+        await asyncio.sleep(STATUS_INTERVAL)
+
 async def main():
     print("=" * 55)
     print("  SHREK NOTIFIER — HOPPER + BOT MONITOR")
@@ -466,13 +446,10 @@ async def main():
     print(f"  Status API : {BOT_API_URL}")
     print("=" * 55 + "\n")
 
-    # Start bot monitor in background thread (uses requests, not async)
-    t = threading.Thread(target=_monitor_loop, daemon=True)
-    t.start()
-
     # Start async tasks
     asyncio.create_task(scanner())
     asyncio.create_task(cleanup())
+    asyncio.create_task(bot_status_loop())
 
     async with ws_server.serve(handle, "0.0.0.0", PORT):
         print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
