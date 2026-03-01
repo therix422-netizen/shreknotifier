@@ -196,28 +196,8 @@ async def cleanup():
 
 
 # ================================================================
-# DISCORD WEBHOOK (sent once per unique job+brainrot)
+# Webhooks are handled entirely by the Lua script
 # ================================================================
-WEBHOOKS = {
-    "10m+":  "https://ptb.discord.com/api/webhooks/1466150960631124077/uSYu5q9WRgbVGc--fYMh8v8oKv8px-6fKsshPhXUPRuejrXRX3fBUnAVenmv792iAdLw",
-    "50m+":  "https://ptb.discord.com/api/webhooks/1466151003249446953/ptYOg2FccEIbO45D7jEtxV0DLSTUjsZ7Wk_P_jcANpgMq14qKJfspx1RpdCGgh_Jom23",
-    "100m+": "https://ptb.discord.com/api/webhooks/1466151038016028793/9Af0juhrAtmIMPt2JcfPy2Yjqd01VemE6-Il8NH3--0XDICoW17BLz7VOWYZ9XKWj_-f",
-    "500m+": "https://ptb.discord.com/api/webhooks/1466151077438033962/2id4dQig9N_7FK-X9rtNGNYRWjv_PXMGSiIwN-lQ36AAqGDYlrB8u_A_k7R2qGWPH04a",
-    "1b+":   "https://ptb.discord.com/api/webhooks/1466151123944472597/CtZbm3U3Lsi1TGdOfLPqGdziF_0xpZ-cWMqXupUeE3-YEF-BcpJufH5PUBFFlSborgzM",
-}
-HIGHLIGHTS_URL = "https://ptb.discord.com/api/webhooks/1466088189260468458/Vi19cPhLJXGckt_0IDjRa6MkGixFznByJ_0BlNmKx0h84VlBgJtrPmtHWmbDHiW3eOPe"
-
-EVERYONE_PING = {"meowl","strawberry elephant","headless horseman","skibidi toilet","la supreme combinasion","ginger gerat","ketupat bros"}
-HERE_PING     = {"dragon gingerini","hydra dragon cannelloni","dragon cannelloni","cerberus"}
-
-def get_category(value):
-    v = float(value or 0)
-    if v >= 1e9:  return "1b+"
-    if v >= 5e8:  return "500m+"
-    if v >= 1e8:  return "100m+"
-    if v >= 5e7:  return "50m+"
-    if v >= 1e7:  return "10m+"
-    return None
 
 # Brainrot images
 # ── WS HANDLER ───────────────────────────────────────────────────
