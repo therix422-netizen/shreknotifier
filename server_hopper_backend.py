@@ -202,7 +202,8 @@ async def cleanup():
 
 # Brainrot images
 # ── WS HANDLER ───────────────────────────────────────────────────
-async def handle(ws, path):
+async def handle(ws):
+    path    = ws.request.path
     qp      = parse_qs(urlparse(path).query)
     who     = qp.get("who", ["?"])[0]
     is_view = qp.get("viewer", ["0"])[0] == "1"
