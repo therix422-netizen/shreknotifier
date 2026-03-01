@@ -6,11 +6,14 @@
 # ================================================================
 
 import asyncio, json, time, datetime, threading, os, hashlib, base64, hmac
-from Crypto.Cipher import ChaCha20_Poly1305
+try:
+    from Crypto.Cipher import ChaCha20_Poly1305
+except ImportError:
+    from Cryptodome.Cipher import ChaCha20_Poly1305
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
-import websockets.server as ws_server
+import websockets.server as ws_servera
 import requests as req_lib
 
 # ================================================================
