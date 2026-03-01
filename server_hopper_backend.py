@@ -41,6 +41,7 @@ used_ts  = {}        # server_id -> timestamp when last used
 seen     = set()     # already processed server IDs
 waiters  = []        # (future, who, current_job) — clients waiting
 clients  = {}        # who -> server_id they are on right now
+viewers  = set()     # WebSockets connected as viewers (receive found events)
 
 # ── GIVE / RELEASE ───────────────────────────────────────────────
 def give(who, current_job=None):
@@ -225,6 +226,31 @@ async def handle(ws, path):
                     drain_waiters()
                     await send_next()
 
+                elif t == "found":
+                    # Bot found a brainrot - broadcast to all viewers
+                    entry = {
+                        "type":     "found",
+                        "player":   who,
+                        "name":     msg.get("name", "?"),
+                        "gen":      msg.get("gen", "?"),
+                        "value":    msg.get("value", 0),
+                        "job_id":   msg.get("job_id", "?"),
+                        "time":     datetime.datetime.utcnow().isoformat() + "Z",
+                    }
+                    print(f"[FOUND] {who[:14]} | {msg.get('name')} {msg.get('gen')}")
+                    dead = set()
+                    for v in viewers:
+                        try:
+                            await v.send(json.dumps(entry))
+                        except:
+                            dead.add(v)
+                    viewers.difference_update(dead)
+
+                elif t == "viewer":
+                    # Client wants to receive found events
+                    viewers.add(ws)
+                    await ws.send(json.dumps({"type": "viewer_ok", "msg": "Now receiving brainrot finds"}))
+
                 elif t == "ping":
                     await ws.send(json.dumps({"type": "pong"}))
 
@@ -235,6 +261,7 @@ async def handle(ws, path):
     finally:
         free(who)
         drain_waiters()
+        viewers.discard(ws)
         print(f"[-] {who[:20]} left | total={len(clients)}")
 
 # ================================================================
