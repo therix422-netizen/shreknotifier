@@ -353,10 +353,22 @@ async def handle(ws, path):
 # ── BOT STATUS MONITOR ───────────────────────────────────────────
 BOT_STATUS_WEBHOOK = os.environ.get("BOT_STATUS_WEBHOOK", "https://ptb.discord.com/api/webhooks/1477758597961089258/GDZXg7MBzeabPNrMTSHzKNNPa9iFnT16xgEnO4brL6J8BnpUFxCBnw9dX7Sa98F9Tm8Z")
 BOT_STATUS_API     = "https://status.therixyt4.workers.dev/bots"
-TOTAL_BOTS         = int(os.environ.get("TOTAL_BOTS", "40"))
+TOTAL_BOTS         = int(os.environ.get("TOTAL_BOTS", "600"))
 STATUS_INTERVAL    = int(os.environ.get("STATUS_INTERVAL", "60"))
-_status_message_id = None
 _last_bot_count    = None
+MSG_ID_FILE        = "/tmp/status_msg_id.txt"
+
+def _load_msg_id():
+    try:
+        return open(MSG_ID_FILE).read().strip()
+    except:
+        return None
+
+def _save_msg_id(mid):
+    try:
+        open(MSG_ID_FILE, "w").write(str(mid))
+    except:
+        pass
 
 def _power_color(pct):
     if pct >= 80: return 0x00ff88
@@ -371,12 +383,13 @@ def _power_label(pct):
     return "🔴 Critical"
 
 async def bot_status_loop():
-    global _status_message_id, _last_bot_count
+    global _last_bot_count
     if not BOT_STATUS_WEBHOOK:
         print("[STATUS] No BOT_STATUS_WEBHOOK set, skipping monitor")
         return
     await asyncio.sleep(10)
     print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
+    msg_id = _load_msg_id()
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
@@ -410,24 +423,30 @@ async def bot_status_loop():
                 }
                 payload = {"embeds": [embed]}
 
-                # Edit or post
-                if _status_message_id:
+                # Try to edit existing message first
+                edited = False
+                if msg_id:
                     async with sess.patch(
-                        f"{BOT_STATUS_WEBHOOK}/messages/{_status_message_id}",
+                        f"{BOT_STATUS_WEBHOOK}/messages/{msg_id}",
                         json=payload, timeout=aiohttp.ClientTimeout(total=10)
                     ) as r:
-                        if r.status == 404:
-                            _status_message_id = None
+                        if r.status in (200, 204):
+                            edited = True
+                            print(f"[STATUS] Edited — {count}/{TOTAL_BOTS} bots ({pct}%)")
                         else:
-                            print(f"[STATUS] Updated — {count}/{TOTAL_BOTS} bots ({pct}%)")
-                if not _status_message_id:
+                            print(f"[STATUS] Edit failed ({r.status}), posting new")
+                            msg_id = None
+
+                # Post new if no existing message
+                if not edited:
                     async with sess.post(
                         f"{BOT_STATUS_WEBHOOK}?wait=true",
                         json=payload, timeout=aiohttp.ClientTimeout(total=10)
                     ) as r:
                         resp = await r.json()
-                        _status_message_id = resp.get("id")
-                        print(f"[STATUS] Posted — {count}/{TOTAL_BOTS} bots ({pct}%)")
+                        msg_id = resp.get("id")
+                        _save_msg_id(msg_id)
+                        print(f"[STATUS] Posted new — {count}/{TOTAL_BOTS} bots ({pct}%)")
         except Exception as e:
             print(f"[STATUS ERR] {e}")
         await asyncio.sleep(STATUS_INTERVAL)
