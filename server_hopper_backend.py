@@ -13,7 +13,8 @@ except ImportError:
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
-import websockets.server as ws_server
+import websockets
+from websockets.asyncio.server import serve as ws_serve
 import requests as req_lib
 
 # ================================================================
@@ -481,7 +482,7 @@ async def main():
     asyncio.create_task(cleanup())
     asyncio.create_task(bot_status_loop())
 
-    async with ws_server.serve(handle, "0.0.0.0", PORT):
+    async with ws_serve(handle, "0.0.0.0", PORT):
         print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
         await asyncio.Future()
 
