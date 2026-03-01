@@ -290,10 +290,14 @@ async def handle(ws, path):
                     drain_waiters()
                     await send_next()
 
-                elif t == "found":
-                    name   = msg.get("name", "?")
-                    job_id = msg.get("job_id", "?")
-                    dedup_key = f"{job_id}:{name}"
+                elif t in ("found", "found_batch"):
+                    job_id  = msg.get("job_id", "?")
+                    player  = msg.get("player", who)
+                    items   = msg.get("items") or ([{
+                        "name":  msg.get("name","?"),
+                        "gen":   msg.get("gen","?"),
+                        "value": msg.get("value", 0),
+                    }] if t == "found" else [])
 
                     # Expire old entries (10 min)
                     now_ts = now()
@@ -301,25 +305,24 @@ async def handle(ws, path):
                     for k in expired:
                         del found_seen[k]
 
-                    # Skip if already sent for this server+brainrot combo
-                    if dedup_key in found_seen:
-                        # Already reported - tell bot to skip webhook
-                        print(f"[DEDUP] Skipped {name} on {job_id[:8]}")
+                    # Dedup: keep only items not seen yet for this server
+                    new_items = []
+                    for item in items:
+                        key = f"{job_id}:{item.get('name','?').lower()}"
+                        if key not in found_seen:
+                            found_seen[key] = now_ts
+                            new_items.append(item)
+
+                    if not new_items:
                         await ws.send(json.dumps({"type": "found_ack", "first": False}))
                     else:
-                        found_seen[dedup_key] = now_ts
-                        entry = {
-                            "type":   "found",
-                            "player": who,
-                            "name":   name,
-                            "gen":    msg.get("gen", "?"),
-                            "value":  msg.get("value", 0),
-                            "job_id": job_id,
-                            "time":   datetime.datetime.utcnow().isoformat() + "Z",
-                        }
-                        print(f"[FOUND] {who[:14]} | {name} {msg.get('gen')}")
-                        await ws.send(json.dumps({"type": "found_ack", "first": True, "name": name, "gen": msg.get("gen","?"), "value": msg.get("value",0), "job_id": job_id}))
+                        names = ", ".join(i["name"] for i in new_items)
+                        print(f"[FOUND] {who[:14]} | {names}")
+                        # Reply to bot - it sends the Discord webhook
+                        await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
                         # Broadcast to viewers
+                        entry = {"type": "found", "player": player, "job_id": job_id, "items": new_items,
+                                 "time": datetime.datetime.utcnow().isoformat() + "Z"}
                         dead = set()
                         for v, v_key in list(viewer_keys.items()):
                             try:
