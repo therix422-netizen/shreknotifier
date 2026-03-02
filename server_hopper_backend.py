@@ -289,7 +289,7 @@ async def handle(ws, path=None):
                     for k in expired:
                         del found_seen[k]
 
-                    # Dedup: keep only items not seen yet for this server
+                    # Dedup for webhook (only first bot sends Discord webhook)
                     new_items = []
                     for item in items:
                         key = f"{job_id}:{item.get('name','?').lower()}"
@@ -302,10 +302,11 @@ async def handle(ws, path=None):
                     else:
                         names = ", ".join(i["name"] for i in new_items)
                         print(f"[FOUND] {who[:14]} | {names}")
-                        # Reply to bot - it sends the Discord webhook
                         await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
-                        # Broadcast to viewers (XOR encrypted)
-                        entry = {"type": "found", "player": player, "job_id": job_id, "items": new_items,
+
+                    # Always broadcast ALL items to viewers (no dedup for viewers)
+                    if items and viewer_keys:
+                        entry = {"type": "found", "player": player, "job_id": job_id, "items": items,
                                  "time": datetime.datetime.utcnow().isoformat() + "Z"}
                         dead = set()
                         for v, v_key in list(viewer_keys.items()):
