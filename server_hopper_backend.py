@@ -91,6 +91,7 @@ waiters  = []        # (future, who, current_job) — clients waiting
 clients  = {}        # who -> server_id they are on right now
 viewer_keys = {}      # ws -> auth_key, viewers that receive found events (ChaCha20 encrypted)
 found_seen = {}       # "job_id:name" -> timestamp, dedup so only 1 webhook per find (10min TTL)
+bot_heartbeats = {}   # who -> last_seen timestamp (5min TTL)
 
 # ── GIVE / RELEASE ───────────────────────────────────────────────
 def give(who, current_job=None):
@@ -360,6 +361,9 @@ async def handle(ws, path=None):
                     viewers.add(ws)
                     await ws.send(json.dumps({"type": "viewer_ok", "msg": "Now receiving brainrot finds"}))
 
+                elif t == "heartbeat":
+                    bot_heartbeats[who] = now()
+
                 elif t == "ping":
                     await ws.send(json.dumps({"type": "pong"}))
 
@@ -414,17 +418,44 @@ async def bot_status_loop():
     await asyncio.sleep(10)
     print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
 
-    # Load msg_id: env var takes priority (set STATUS_MSG_ID in Railway after first post)
+    # Load msg_id from env var (set STATUS_MSG_ID in Railway) or file
     msg_id = os.environ.get("STATUS_MSG_ID", "").strip() or _load_msg_id()
     if msg_id:
-        print(f"[STATUS] Using msg_id={msg_id}")
+        print(f"[STATUS] Using msg_id={msg_id} (will edit this message)")
+    else:
+        # Try to fetch last message from channel using webhook
+        try:
+            async with aiohttp.ClientSession() as sess:
+                wh_parts = BOT_STATUS_WEBHOOK.rstrip("/").split("/")
+                wh_id_s, wh_token_s = wh_parts[-2], wh_parts[-1]
+                async with sess.get(
+                    f"https://discord.com/api/v10/channels/1477387807780638760/messages?limit=5",
+                    headers={"Authorization": f"Bot {wh_token_s}"},
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as r:
+                    if r.status == 200:
+                        msgs = await r.json()
+                        for m in msgs:
+                            if m.get("webhook_id") == wh_id_s:
+                                msg_id = m["id"]
+                                _save_msg_id(msg_id)
+                                print(f"[STATUS] Recovered msg_id={msg_id} from channel")
+                                break
+        except Exception as e:
+            print(f"[STATUS] Could not recover msg_id: {e}")
 
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
-                # Count active bots directly from connected clients (no external API needed)
-                bots  = [{"player": k} for k in list(clients.keys())]
-                count = len(bots)
+                # Count bots active in last 5 minutes via heartbeats
+                now_ts2 = now()
+                active = {k: t for k, t in bot_heartbeats.items() if now_ts2 - t < 300}
+                # Also include connected clients even without heartbeat yet
+                for k in clients.keys():
+                    if k not in active:
+                        active[k] = now_ts2
+                count = len(active)
+                bots  = [{"player": k} for k in active]
                 pct   = round((count / max(TOTAL_BOTS, 1)) * 100, 1)
                 trend = ""
                 if _last_bot_count is not None:
