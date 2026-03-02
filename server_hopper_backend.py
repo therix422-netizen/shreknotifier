@@ -338,12 +338,10 @@ async def handle(ws, path=None):
 
 async def main():
     print("=" * 55)
-    print("  SHREK NOTIFIER — HOPPER + BOT MONITOR")
+    print("  SHREK NOTIFIER — HOPPER BACKEND")
     print(f"  WS Port    : {PORT}")
     print(f"  Place ID   : {PLACE_ID}")
     print(f"  Players    : {MIN_P}-{MAX_P}")
-    print(f"  Total bots : {TOTAL_BOTS}")
-    print(f"  Status API : {BOT_API_URL}")
     print("=" * 55 + "\n")
 
     # Start async tasks
