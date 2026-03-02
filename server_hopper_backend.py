@@ -14,7 +14,7 @@ from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
 import websockets
-from websockets.asyncio.server import serve as ws_serve
+import websockets.server as ws_server
 import requests as req_lib
 
 # ================================================================
@@ -202,8 +202,7 @@ async def cleanup():
 
 # Brainrot images
 # ── WS HANDLER ───────────────────────────────────────────────────
-async def handle(ws):
-    path    = ws.request.path
+async def handle(ws, path):
     qp      = parse_qs(urlparse(path).query)
     who     = qp.get("who", ["?"])[0]
     is_view = qp.get("viewer", ["0"])[0] == "1"
@@ -468,7 +467,7 @@ async def main():
     asyncio.create_task(cleanup())
     asyncio.create_task(bot_status_loop())
 
-    async with ws_serve(handle, "0.0.0.0", PORT):
+    async with ws_server.serve(handle, "0.0.0.0", PORT):
         print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
         await asyncio.Future()
 
