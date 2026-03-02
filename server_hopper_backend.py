@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
-# ================================================================
-# SHREK NOTIFIER — SERVER HOPPER + BOT STATUS MONITOR
-# pip install websockets aiohttp requests
-# python server_hopper_backend.py
-# ================================================================
+# SHREK NOTIFIER - SERVER HOPPER BACKEND
 
-import asyncio, json, time, datetime, threading, os, hashlib, base64, hmac
-try:
-    from Crypto.Cipher import ChaCha20_Poly1305
-    HAS_CRYPTO = True
-except ImportError:
-    try:
-        from Cryptodome.Cipher import ChaCha20_Poly1305
-        HAS_CRYPTO = True
-    except ImportError:
-        HAS_CRYPTO = False
-        print("[WARN] No crypto library found - encryption disabled")
+import asyncio, json, time, datetime, os, hashlib, base64
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
@@ -26,44 +12,19 @@ try:
 except ImportError:
     import websockets.server as ws_server
     _NEW_WS = False
-import requests as req_lib
 
-# ================================================================
-# CONFIG
-# ================================================================
-PORT            = int(os.environ.get("PORT", 3001))  # Railway sets PORT automatically
-
-# ── AUTH + CHACHA20-POLY1305 ─────────────────────────────────────
-# Set in Railway environment variables:
-#   AUTH_KEYS  = comma-separated valid keys  e.g. shreknotifiiifier23242!
-#   ENC_SECRET = encryption secret (shared with Lua clients)
-_raw_keys  = os.environ.get("AUTH_KEYS",  "shreknotifiiifier23242!")
-AUTH_KEYS  = set(k.strip() for k in _raw_keys.split(",") if k.strip())
+PORT       = int(os.environ.get("PORT", 3001))
+AUTH_KEYS  = set(k.strip() for k in os.environ.get("AUTH_KEYS", "shreknotifiiifier23242!").split(",") if k.strip())
 ENC_SECRET = os.environ.get("ENC_SECRET", "xK9#m5P2$vL7nQ4@32wR8")
 
-def _hkdf32(ikm: bytes, salt: bytes = b"", info: bytes = b"") -> bytes:
-    """HKDF-SHA256, extract+expand, 32 bytes output"""
-    if not salt: salt = bytes(32)
-    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
-    return hmac.new(prk, info + b"", hashlib.sha256).digest()
-
-def derive_key(auth_key: str) -> bytes:
-    """Derive per-client encryption key from shared secret + auth key"""
-    return _hkdf32(
-        ikm  = ENC_SECRET.encode(),
-        salt = auth_key.encode(),
-        info = b"shrek-chacha20-v1"
-    )
+def _derive_key(auth_key: str) -> bytes:
+    return hashlib.sha256((ENC_SECRET + auth_key).encode()).digest()
 
 def encrypt_payload(data: str, auth_key: str) -> str:
-    """ChaCha20-Poly1305 encrypt JSON string -> base64(nonce+tag+ct)"""
-    if not HAS_CRYPTO:
-        return base64.b64encode(data.encode()).decode()
-    key    = derive_key(auth_key)
-    nonce  = os.urandom(12)
-    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
-    ct, tag = cipher.encrypt_and_digest(data.encode())
-    return base64.b64encode(nonce + tag + ct).decode()
+    key = _derive_key(auth_key)
+    ct  = bytes(data.encode()[i] ^ key[i % len(key)] for i in range(len(data)))
+    return base64.b64encode(ct).decode()
+
 PLACE_ID        = "109983668079237"
 MIN_P           = 6
 MAX_P           = 8
@@ -373,127 +334,6 @@ async def handle(ws, path=None):
         viewer_keys.pop(ws, None)
         print(f"[-] {who[:20]} left | total={len(clients)}")
 
-# ── BOT STATUS MONITOR ───────────────────────────────────────────
-BOT_STATUS_WEBHOOK = os.environ.get("BOT_STATUS_WEBHOOK", "https://ptb.discord.com/api/webhooks/1477758597961089258/GDZXg7MBzeabPNrMTSHzKNNPa9iFnT16xgEnO4brL6J8BnpUFxCBnw9dX7Sa98F9Tm8Z")
-BOT_STATUS_API     = "https://status.therixyt4.workers.dev/bots"
-TOTAL_BOTS         = int(os.environ.get("TOTAL_BOTS", "600"))
-STATUS_INTERVAL    = int(os.environ.get("STATUS_INTERVAL", "60"))
-_last_bot_count    = None
-_posting_lock      = False
-MSG_ID_FILE        = "/tmp/status_msg_id.txt"
-
-def _load_msg_id():
-    try:
-        return open(MSG_ID_FILE).read().strip()
-    except:
-        return None
-
-def _save_msg_id(mid):
-    try:
-        open(MSG_ID_FILE, "w").write(str(mid))
-    except:
-        pass
-
-def _power_color(pct):
-    if pct >= 80: return 0x00ff88
-    if pct >= 50: return 0xffcc00
-    if pct >= 20: return 0xff8800
-    return 0xff3333
-
-def _power_label(pct):
-    if pct >= 80: return "🟢 High"
-    if pct >= 50: return "🟡 Moderate"
-    if pct >= 20: return "🟠 Low"
-    return "🔴 Critical"
-
-async def bot_status_loop():
-    global _last_bot_count, _posting_lock
-    if not BOT_STATUS_WEBHOOK:
-        print("[STATUS] No BOT_STATUS_WEBHOOK set, skipping monitor")
-        return
-    await asyncio.sleep(10)
-    print(f"[STATUS] Monitor started — checking every {STATUS_INTERVAL}s")
-
-    # Load msg_id from env var (set STATUS_MSG_ID in Railway) or file
-    msg_id = os.environ.get("STATUS_MSG_ID", "").strip() or _load_msg_id()
-    if msg_id:
-        print(f"[STATUS] Using msg_id={msg_id} (will edit this message)")
-    else:
-        # Try to fetch last message from channel using webhook
-        try:
-            async with aiohttp.ClientSession() as sess:
-                wh_parts = BOT_STATUS_WEBHOOK.rstrip("/").split("/")
-                wh_id_s, wh_token_s = wh_parts[-2], wh_parts[-1]
-                async with sess.get(
-                    f"https://discord.com/api/v10/channels/1477387807780638760/messages?limit=5",
-                    headers={"Authorization": f"Bot {wh_token_s}"},
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as r:
-                    if r.status == 200:
-                        msgs = await r.json()
-                        for m in msgs:
-                            if m.get("webhook_id") == wh_id_s:
-                                msg_id = m["id"]
-                                _save_msg_id(msg_id)
-                                print(f"[STATUS] Recovered msg_id={msg_id} from channel")
-                                break
-        except Exception as e:
-            print(f"[STATUS] Could not recover msg_id: {e}")
-
-    while True:
-        try:
-            async with aiohttp.ClientSession() as sess:
-                # Count unique connected bot WS connections (excludes viewers)
-                count = len(clients)
-                bots  = [{"player": k} for k in list(clients.keys())]
-                pct   = round((count / max(TOTAL_BOTS, 1)) * 100, 1)
-                trend = ""
-                if _last_bot_count is not None:
-                    if count > _last_bot_count: trend = " ↑"
-                    elif count < _last_bot_count: trend = " ↓"
-                    else: trend = " →"
-                _last_bot_count = count
-
-                now_str = datetime.datetime.utcnow().strftime("%d.%m.%Y %H:%M UTC")
-                embed = {
-                    "title": "🤖 Bot Status",
-                    "color": _power_color(pct),
-                    "fields": [
-                        {"name": f"{pct}% power{trend}", "value": f"**{_power_label(pct)}**", "inline": False},
-                        {"name": f"Active Bots ({count}/{TOTAL_BOTS})", "value": f"**{count}** bots online", "inline": False},
-                    ],
-                    "footer": {"text": f"Last updated • {now_str}"},
-                    "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-                }
-                payload = {"embeds": [embed]}
-
-                if msg_id:
-                    # Try editing existing message
-                    async with sess.patch(
-                        f"{BOT_STATUS_WEBHOOK}/messages/{msg_id}",
-                        json=payload, timeout=aiohttp.ClientTimeout(total=10)
-                    ) as r:
-                        if r.status in (200, 204):
-                            print(f"[STATUS] Edited — {count}/{TOTAL_BOTS} bots ({pct}%)")
-                        else:
-                            # Message gone, clear ID and post new next iteration
-                            print(f"[STATUS] Edit failed ({r.status}), will post new")
-                            msg_id = None
-                            _save_msg_id("")
-                else:
-                    # Post new message once
-                    async with sess.post(
-                        f"{BOT_STATUS_WEBHOOK}?wait=true",
-                        json=payload, timeout=aiohttp.ClientTimeout(total=10)
-                    ) as r:
-                        resp = await r.json()
-                        msg_id = resp.get("id")
-                        if msg_id:
-                            _save_msg_id(msg_id)
-                            print(f"[STATUS] Posted new — {count}/{TOTAL_BOTS} bots ({pct}%)")
-        except Exception as e:
-            print(f"[STATUS ERR] {e}")
-        await asyncio.sleep(STATUS_INTERVAL)
 
 async def main():
     print("=" * 55)
@@ -508,7 +348,6 @@ async def main():
     # Start async tasks
     asyncio.create_task(scanner())
     asyncio.create_task(cleanup())
-    asyncio.create_task(bot_status_loop())
 
     if _NEW_WS:
         from websockets.asyncio.server import serve as _ws_serve
