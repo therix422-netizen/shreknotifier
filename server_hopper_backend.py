@@ -29,14 +29,11 @@ PLACE_ID        = "109983668079237"
 MIN_P           = 6
 MAX_P           = 8
 PAGE_LIMIT      = 100
-SCAN_DELAY      = 0.05       # seconds between roblox API pages
-COOLDOWN        = 90         # seconds before a used server can be reused
+SCAN_DELAY      = 0.01       # seconds between roblox API pages
+COOLDOWN        = 30         # seconds before a used server can be reused
 
 # Bot status monitor
-BOT_API_URL     = "https://status.therixyt4.workers.dev/bots"
-BOT_API_URL     = "https://status.therixyt4.workers.dev/bots"
-TOTAL_BOTS      = 600        # total number of bots you own
-STATUS_INTERVAL = 300        # check every 5 minutes
+
 
 # ================================================================
 # SERVER HOPPER STATE
@@ -65,7 +62,7 @@ def give(who, current_job=None):
         in_use.add(sid)
         clients[who] = sid
         used_ts[sid] = now()
-        print(f"[GIVE] {sid[:8]} -> {who[:14]} | q={len(queue)} used={len(in_use)} clients={len(clients)}")
+        pass  # [GIVE] suppressed for performance
         return sid
     return None
 
@@ -73,7 +70,7 @@ def free(who):
     sid = clients.pop(who, None)
     if sid:
         in_use.discard(sid)
-        print(f"[FREE] {sid[:8]} from {who[:14]} | used={len(in_use)}")
+        pass  # [FREE] suppressed
 
 def drain_waiters():
     remaining = []
@@ -153,7 +150,7 @@ async def scanner():
                     scan_page(sess, "Desc"),
                     return_exceptions=True
                 )
-                if len(queue) > 3000 and not waiters and len(clients) < 5:
+                if len(queue) > 5000 and not waiters and len(clients) < 10:
                     await asyncio.sleep(2)
             except Exception as e:
                 print(f"[SCANNER ERR] {e}")
@@ -161,7 +158,7 @@ async def scanner():
 
 async def cleanup():
     while True:
-        await asyncio.sleep(30)
+        await asyncio.sleep(15)
         n = now()
         expired = [s for s, t in used_ts.items() if n - t > COOLDOWN]
         for s in expired:
@@ -189,7 +186,7 @@ async def handle(ws, path=None):
     qp      = parse_qs(urlparse(path).query)
     who     = qp.get("who", ["?"])[0]
     is_view = qp.get("viewer", ["0"])[0] == "1"
-    print(f"[+] {who[:20]} connected viewer={is_view} | total={len(clients)+1}")
+    pass  # connect log suppressed
 
     # ── AUTH CHECK ───────────────────────────────────────────────
     auth_key = qp.get("key", [""])[0]
@@ -226,7 +223,7 @@ async def handle(ws, path=None):
         waiters.append((fut, who, current_job))
         print(f"[WAIT] {who[:14]} | waiters={len(waiters)}")
         try:
-            sid = await asyncio.wait_for(fut, timeout=5.0)
+            sid = await asyncio.wait_for(fut, timeout=2.0)
             await ws.send(json.dumps({"type": "next", "id": sid}))
         except asyncio.TimeoutError:
             sid = give(who, current_job)
@@ -259,7 +256,7 @@ async def handle(ws, path=None):
                     clients[who] = new_sid
                     current_job  = new_sid
                     in_use.add(new_sid)
-                    print(f"[JOINED] {who[:14]} on {new_sid[:8]}")
+                    pass  # joined log suppressed
 
                 elif t == "release":
                     sid = msg.get("id", "")
@@ -298,11 +295,13 @@ async def handle(ws, path=None):
                             new_items.append(item)
 
                     if not new_items:
-                        await ws.send(json.dumps({"type": "found_ack", "first": False}))
+                        try: await ws.send(json.dumps({"type": "found_ack", "first": False}))
+                        except: pass
                     else:
                         names = ", ".join(i["name"] for i in new_items)
                         print(f"[FOUND] {who[:14]} | {names}")
-                        await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
+                        try: await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
+                        except: pass
 
                     # Always broadcast ALL items to viewers (no dedup for viewers)
                     if items and viewer_keys:
@@ -326,14 +325,15 @@ async def handle(ws, path=None):
                     await ws.send(json.dumps({"type": "pong"}))
 
             except Exception as e:
-                print(f"[MSG ERR] {e}")
+                if "no close frame" not in str(e) and "keepalive" not in str(e):
+                    print(f"[MSG ERR] {e}")
     except Exception:
         pass
     finally:
         free(who)
         drain_waiters()
         viewer_keys.pop(ws, None)
-        print(f"[-] {who[:20]} left | total={len(clients)}")
+        pass  # disconnect log suppressed
 
 
 async def main():
