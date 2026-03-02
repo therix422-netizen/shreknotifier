@@ -304,7 +304,7 @@ async def handle(ws, path=None):
                         print(f"[FOUND] {who[:14]} | {names}")
                         # Reply to bot - it sends the Discord webhook
                         await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
-                        # Broadcast to viewers
+                        # Broadcast to viewers (XOR encrypted)
                         entry = {"type": "found", "player": player, "job_id": job_id, "items": new_items,
                                  "time": datetime.datetime.utcnow().isoformat() + "Z"}
                         dead = set()
