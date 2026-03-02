@@ -8,13 +8,24 @@
 import asyncio, json, time, datetime, threading, os, hashlib, base64, hmac
 try:
     from Crypto.Cipher import ChaCha20_Poly1305
+    HAS_CRYPTO = True
 except ImportError:
-    from Cryptodome.Cipher import ChaCha20_Poly1305
+    try:
+        from Cryptodome.Cipher import ChaCha20_Poly1305
+        HAS_CRYPTO = True
+    except ImportError:
+        HAS_CRYPTO = False
+        print("[WARN] No crypto library found - encryption disabled")
 from collections import deque
 from urllib.parse import urlparse, parse_qs
 import aiohttp
 import websockets
-import websockets.server as ws_server
+try:
+    from websockets.asyncio.server import serve as _ws_serve
+    _NEW_WS = True
+except ImportError:
+    import websockets.server as ws_server
+    _NEW_WS = False
 import requests as req_lib
 
 # ================================================================
@@ -46,6 +57,8 @@ def derive_key(auth_key: str) -> bytes:
 
 def encrypt_payload(data: str, auth_key: str) -> str:
     """ChaCha20-Poly1305 encrypt JSON string -> base64(nonce+tag+ct)"""
+    if not HAS_CRYPTO:
+        return base64.b64encode(data.encode()).decode()
     key    = derive_key(auth_key)
     nonce  = os.urandom(12)
     cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
@@ -202,7 +215,16 @@ async def cleanup():
 
 # Brainrot images
 # ── WS HANDLER ───────────────────────────────────────────────────
-async def handle(ws, path):
+async def handle(ws, path=None):
+    if path is None:
+        # websockets >= 14 new API
+        try:
+            path = ws.request.path
+        except AttributeError:
+            try:
+                path = ws.path
+            except AttributeError:
+                path = "/"
     qp      = parse_qs(urlparse(path).query)
     who     = qp.get("who", ["?"])[0]
     is_view = qp.get("viewer", ["0"])[0] == "1"
@@ -467,9 +489,15 @@ async def main():
     asyncio.create_task(cleanup())
     asyncio.create_task(bot_status_loop())
 
-    async with ws_server.serve(handle, "0.0.0.0", PORT):
-        print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
-        await asyncio.Future()
+    if _NEW_WS:
+        from websockets.asyncio.server import serve as _ws_serve
+        async with _ws_serve(handle, "0.0.0.0", PORT):
+            print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
+            await asyncio.Future()
+    else:
+        async with ws_server.serve(handle, "0.0.0.0", PORT):
+            print(f"✅  WS server running on ws://0.0.0.0:{PORT}\n")
+            await asyncio.Future()
 
 if __name__ == "__main__":
     try:
