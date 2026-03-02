@@ -91,7 +91,6 @@ waiters  = []        # (future, who, current_job) — clients waiting
 clients  = {}        # who -> server_id they are on right now
 viewer_keys = {}      # ws -> auth_key, viewers that receive found events (ChaCha20 encrypted)
 found_seen = {}       # "job_id:name" -> timestamp, dedup so only 1 webhook per find (10min TTL)
-bot_heartbeats = {}   # who -> last_seen timestamp (5min TTL)
 
 # ── GIVE / RELEASE ───────────────────────────────────────────────
 def give(who, current_job=None):
@@ -361,9 +360,6 @@ async def handle(ws, path=None):
                     viewers.add(ws)
                     await ws.send(json.dumps({"type": "viewer_ok", "msg": "Now receiving brainrot finds"}))
 
-                elif t == "heartbeat":
-                    bot_heartbeats[who] = now()
-
                 elif t == "ping":
                     await ws.send(json.dumps({"type": "pong"}))
 
@@ -447,15 +443,9 @@ async def bot_status_loop():
     while True:
         try:
             async with aiohttp.ClientSession() as sess:
-                # Count bots active in last 5 minutes via heartbeats
-                now_ts2 = now()
-                active = {k: t for k, t in bot_heartbeats.items() if now_ts2 - t < 300}
-                # Also include connected clients even without heartbeat yet
-                for k in clients.keys():
-                    if k not in active:
-                        active[k] = now_ts2
-                count = len(active)
-                bots  = [{"player": k} for k in active]
+                # Count unique connected bot WS connections (excludes viewers)
+                count = len(clients)
+                bots  = [{"player": k} for k in list(clients.keys())]
                 pct   = round((count / max(TOTAL_BOTS, 1)) * 100, 1)
                 trend = ""
                 if _last_bot_count is not None:
