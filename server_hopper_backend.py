@@ -29,8 +29,8 @@ PLACE_ID        = "109983668079237"
 MIN_P           = 6
 MAX_P           = 8
 PAGE_LIMIT      = 100
-SCAN_DELAY      = 0.01       # seconds between roblox API pages
-COOLDOWN        = 30         # seconds before a used server can be reused
+SCAN_DELAY      = 0.0       # seconds between roblox API pages
+COOLDOWN        = 15         # seconds before a used server can be reused
 
 # Bot status monitor
 
@@ -142,7 +142,7 @@ async def scan_page(sess, order):
 
 async def scanner():
     print(f"[SCAN] Starting for place {PLACE_ID}")
-    async with aiohttp.ClientSession() as sess:
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=20)) as sess:
         while True:
             try:
                 await asyncio.gather(
@@ -150,8 +150,9 @@ async def scanner():
                     scan_page(sess, "Desc"),
                     return_exceptions=True
                 )
-                if len(queue) > 5000 and not waiters and len(clients) < 10:
-                    await asyncio.sleep(2)
+                if waiters: drain_waiters()
+                if len(queue) > 8000 and not waiters:
+                    await asyncio.sleep(0.5)
             except Exception as e:
                 print(f"[SCANNER ERR] {e}")
                 await asyncio.sleep(2)
@@ -246,7 +247,9 @@ async def handle(ws, path=None):
 
                 if t == "next":
                     current_job = msg.get("currentJob") or current_job
-                    await send_next()
+                    prefetch = min(int(msg.get("prefetch", 1)), 50)
+                    for _ in range(prefetch):
+                        await send_next()
 
                 elif t == "joined":
                     new_sid = msg.get("id", "")
