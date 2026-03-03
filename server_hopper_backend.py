@@ -297,13 +297,14 @@ async def handle(ws, path=None):
                             found_seen[key] = now_ts
                             new_items.append(item)
 
+                    # found_ack - webhooks handled by local Python now
                     if not new_items:
                         try: await ws.send(json.dumps({"type": "found_ack", "first": False}))
                         except: pass
                     else:
                         names = ", ".join(i["name"] for i in new_items)
                         print(f"[FOUND] {who[:14]} | {names}")
-                        try: await ws.send(json.dumps({"type": "found_ack", "first": True, "items": new_items, "job_id": job_id}))
+                        try: await ws.send(json.dumps({"type": "found_ack", "first": False}))  # webhooks via local py
                         except: pass
 
                     # Always broadcast ALL items to viewers (no dedup for viewers)
