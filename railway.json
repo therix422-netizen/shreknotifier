@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python server_hopper_backend.py",
+    "startCommand": "python main.py",
     "restartPolicyType": "ON_FAILURE"
   }
 }
