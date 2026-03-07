@@ -27,6 +27,14 @@ def encrypt_payload(data: str, auth_key: str) -> str:
     ct  = bytes(data.encode()[i] ^ key[i % len(key)] for i in range(len(data.encode())))
     return base64.b64encode(ct).decode()
 
+def xor_decrypt(data: str, key: str) -> str:
+    """Decrypt XOR+base64 encoded string from Lua client."""
+    raw = base64.b64decode(data.encode()).decode('latin-1')
+    out = []
+    for i, c in enumerate(raw):
+        out.append(chr(ord(c) ^ ord(key[i % len(key)])))
+    return ''.join(out)
+
 # ── STATE ────────────────────────────────────────────────────────
 # bots: ws -> who   (tracker bots that send found_batch)
 # viewers: ws -> who (autojoiners that receive found_batch)
@@ -46,8 +54,17 @@ async def handle(ws, path=None):
     key     = qp.get("key", [""])[0]
     is_view = qp.get("viewer", ["0"])[0] == "1"
 
-    # Auth check
-    if key != AUTH_KEY:
+    # Auth check — accept both plain and XOR encrypted key
+    key_valid = False
+    if key == AUTH_KEY:
+        key_valid = True
+    else:
+        try:
+            decrypted = xor_decrypt(key, ENC_SECRET)
+            key_valid = decrypted == AUTH_KEY
+        except Exception:
+            key_valid = False
+    if not key_valid:
         print(f"[AUTH] Rejected {who[:20]} — invalid key")
         try: await ws.send(json.dumps({"type": "error", "msg": "Invalid key"}))
         except: pass
